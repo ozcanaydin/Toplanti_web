@@ -66,4 +66,5 @@ oauth2client
 gunicorn
 fpdf
 XlsxWriter
+psycopg2-binary
 
