@@ -4,13 +4,12 @@ import json
 from datetime import datetime, timedelta
 from veritabani import baglanti_kur, tablo_olustur
 import pandas as pd
-from fpdf import FPDF
 from io import BytesIO
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 
-tablo_olustur ()
+tablo_olustur()
 DURUM_DOSYASI = 'toplanti_durumu.json'
 
 def oku_durum():
@@ -56,13 +55,12 @@ def index():
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO toplantilar (id, tarih, konu, karar, durum, termin, eylem, sorumlu)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ''', yeni_kayit)
         conn.commit()
         conn.close()
         return redirect(url_for('index'))
 
-    # Filtreleme
     filtre_tarih = request.args.get('tarih', '')
     filtre_durum = request.args.get('durum', '')
     filtre_sorumlu = request.args.get('sorumlu', '')
@@ -71,22 +69,23 @@ def index():
     cursor = conn.cursor()
 
     cursor.execute("SELECT DISTINCT tarih FROM toplantilar")
-    tarih_listesi = sorted(t[0] for t in cursor.fetchall())
+    tarih_listesi = sorted(r[0] for r in cursor.fetchall())
 
     query = "SELECT * FROM toplantilar"
-    params = []
     filters = []
+    params = []
     if filtre_tarih:
-        filters.append("tarih = ?")
+        filters.append("tarih = %s")
         params.append(filtre_tarih)
     if filtre_durum:
-        filters.append("durum = ?")
+        filters.append("durum = %s")
         params.append(filtre_durum)
     if filtre_sorumlu:
-        filters.append("sorumlu = ?")
+        filters.append("sorumlu = %s")
         params.append(filtre_sorumlu)
     if filters:
         query += " WHERE " + " AND ".join(filters)
+
     cursor.execute(query, params)
     rows = cursor.fetchall()
 
@@ -101,8 +100,8 @@ def index():
     }
 
     toplam = sum(sayilar.values())
-
     yarin = (datetime.now() + timedelta(days=1)).date()
+
     bildirimler = []
     for r in rows:
         try:
@@ -169,7 +168,7 @@ def bitir():
 def sil(id):
     conn = baglanti_kur()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM toplantilar WHERE id = ?", (id,))
+    cursor.execute("DELETE FROM toplantilar WHERE id = %s", (id,))
     conn.commit()
     conn.close()
     flash("Gündem silindi.")
@@ -179,11 +178,12 @@ def sil(id):
 def duzenle(id):
     conn = baglanti_kur()
     cursor = conn.cursor()
+
     if request.method == 'POST':
         cursor.execute('''
             UPDATE toplantilar
-            SET konu = ?, karar = ?, durum = ?, termin = ?, eylem = ?, sorumlu = ?
-            WHERE id = ?
+            SET konu = %s, karar = %s, durum = %s, termin = %s, eylem = %s, sorumlu = %s
+            WHERE id = %s
         ''', (
             request.form['konu'],
             request.form['karar'],
@@ -198,9 +198,10 @@ def duzenle(id):
         flash("Gündem güncellendi.")
         return redirect(url_for('index'))
 
-    cursor.execute("SELECT * FROM toplantilar WHERE id = ?", (id,))
+    cursor.execute("SELECT * FROM toplantilar WHERE id = %s", (id,))
     row = cursor.fetchone()
     conn.close()
+
     if not row:
         flash("Kayıt bulunamadı.")
         return redirect(url_for('index'))
