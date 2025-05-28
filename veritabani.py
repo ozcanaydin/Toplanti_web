@@ -3,11 +3,11 @@ import os
 
 def baglanti_kur():
     return psycopg2.connect(
-        dbname=os.environ.get("DB_toplanti"),
-        user=os.environ.get("DB_ozcan_takip"),
-        password=os.environ.get("DB_OJBllqlj9Djesddf83NiqPSHT1RXBeNW"),
-        host=os.environ.get("DB_dpg-d0rbvj15pdvs73drjspg-a"),
-        port="5432"
+        dbname=os.environ.get("DB_NAME"),
+        user=os.environ.get("DB_USER"),
+        password=os.environ.get("DB_PASSWORD"),
+        host=os.environ.get("DB_HOST"),
+        port=os.environ.get("DB_PORT")
     )
 
 def tablo_olustur():
@@ -23,4 +23,3 @@ def tablo_olustur():
     ''')
     conn.commit()
     conn.close()
-    
