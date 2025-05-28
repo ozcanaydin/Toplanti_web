@@ -65,4 +65,5 @@ gspread
 oauth2client
 gunicorn
 fpdf
+XlsxWriter
 
