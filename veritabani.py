@@ -15,10 +15,14 @@ def tablo_olustur():
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS toplantilar (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            baslik TEXT NOT NULL,
+            id TEXT PRIMARY KEY,
             tarih TEXT NOT NULL,
-            aciklama TEXT
+            konu TEXT NOT NULL,
+            karar TEXT,
+            durum TEXT,
+            termin TEXT,
+            eylem TEXT,
+            sorumlu TEXT
         )
     ''')
     conn.commit()
