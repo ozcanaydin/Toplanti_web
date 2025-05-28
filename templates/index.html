@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tesisler Müdürlüğü Toplantı Takip Modülü Çağrı Sancar</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body { overflow-x: hidden; }
+    .sidebar {
+      height: 100vh;
+      border-right: 1px solid #ddd;
+      background-color: #f8f9fa;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 220px;
+      padding-top: 60px;
+      transition: transform 0.3s ease;
+      z-index: 1050;
+    }
+    .sidebar.closed {
+      transform: translateX(-100%);
+    }
+    .nav-link { color: #333; }
+    .nav-link.active, .nav-link:hover { background-color: #0d6efd; color: #fff !important; font-weight: bold; }
+    .tamamlandi { background-color: #d4edda !important; }
+    .devam_ediyor { background-color: #fff3cd !important; }
+    .iptal_edildi { background-color: #f8d7da !important; }
+    .beklemede { background-color: #d1ecf1 !important; }
+    .form-label { margin-top: 0.5rem; }
+    .table thead th { position: sticky; top: 0; background: #f8f9fa; }
+    td { word-break: break-word; vertical-align: top; }
+    .uzun-metin { max-height: 150px; overflow-y: auto; display: block; }
+    [id] { scroll-margin-top: 100px; }
+
+    /* Ana içerik, sidebar açıkken soldan boşluk bırak */
+    main {
+      margin-left: 220px;
+      transition: margin-left 0.3s ease;
+    }
+    main.expanded {
+      margin-left: 0;
+    }
+
+    /* Küçük ekranlarda sidebar kapalı başlar */
+    @media (max-width: 767.98px) {
+      .sidebar {
+        transform: translateX(-100%);
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
+      main {
+        margin-left: 0 !important;
+      }
+      /* Menü butonu */
+      #menuToggle {
+        display: block;
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 1100;
+        background-color: #0d6efd;
+        border: none;
+        color: white;
+        font-size: 24px;
+        padding: 8px 12px;
+        border-radius: 4px;
+      }
+    }
+    /* Büyük ekranlarda menuToggle gizle */
+    #menuToggle {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <button id="menuToggle" aria-label="Menüyü Aç/Kapat">☰</button>
+
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Sidebar -->
+      <nav id="sidebar" class="sidebar">
+        <div class="position-sticky px-3">
+          <ul class="nav flex-column">
+            <li class="nav-item"><a class="nav-link active" href="{{ url_for('baslat') }}">🟢 Toplantı Başlat</a></li>
+            <li class="nav-item"><a class="nav-link" href="#gundemEkle">➕ Gündem Maddesi Ekle</a></li>
+            <li class="nav-item"><a class="nav-link" href="#durumlar">📊 Durum</a></li>
+            <li class="nav-item"><a class="nav-link" href="#termin">⏱ Termin Süresi Geçenler</a></li>
+          </ul>
+        </div>
+      </nav>
+
+      <!-- Main content -->
+      <main id="mainContent" class="col px-4 py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h1 id="toplanti" class="m-0">📋 Tesisler Müdürlüğü Toplantı Takip Modülü</h1>
+
+          <!-- Bildirim Zili -->
+          <div class="dropdown">
+            <button class="btn btn-light dropdown-toggle" type="button" id="bildirimZili" data-bs-toggle="dropdown" aria-expanded="false">
+              🔔 Termin süresine 1 Gün Kalanlar <span class="badge bg-danger">{{ bildirimler|length }}</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="bildirimZili">
+              {% if bildirimler %}
+                {% for b in bildirimler %}
+                  <li>
+                    <a class="dropdown-item" href="#gundem-{{ b[0] }}">
+                      📅 {{ b[1] }} – {{ b[2] }} ({{ b[7] }})
+                    </a>
+                  </li>
+                {% endfor %}
+              {% else %}
+                <li class="dropdown-item text-muted">📭 Yaklaşan termin yok</li>
+              {% endif %}
+            </ul>
+          </div>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="alert alert-success">
+              {% for msg in messages %}
+                <p>{{ msg }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="mb-3">
+          {% if toplanti.aktif %}
+            <span class="badge bg-success">🟢 Aktif Toplantı: {{ toplanti.tarih }}</span>
+            <a href="{{ url_for('bitir') }}" class="btn btn-danger btn-sm ms-2">Toplantıyı Bitir</a>
+          {% else %}
+            <span class="badge bg-danger">🔴 Aktif Toplantı Yok</span>
+            <a href="{{ url_for('baslat') }}" class="btn btn-primary btn-sm ms-2">Toplantıyı Başlat</a>
+          {% endif %}
+        </div>
+
+        <div class="d-flex justify-content-start gap-3 my-4 flex-wrap">
+          <a href="{{ url_for('index', durum='Devam Ediyor') }}" class="btn btn-warning">🟡 Devam Ediyor: {{ sayilar.devam }}</a>
+          <a href="{{ url_for('index', durum='Tamamlandı') }}" class="btn btn-success">✅ Tamamlandı: {{ sayilar.tamam }}</a>
+          <a href="{{ url_for('index', durum='Beklemede') }}" class="btn btn-info text-white">🔵 Beklemede: {{ sayilar.beklemede }}</a>
+          <a href="{{ url_for('index', durum='İptal Edildi') }}" class="btn btn-danger">❌ İptal Edildi: {{ sayilar.iptal }}</a>
+          <a href="{{ url_for('index') }}" class="btn btn-dark">🔄 Tümünü Göster</a>
+          <button class="btn btn-secondary">📊 Toplam Gündem: {{ toplam }}</button>
+        </div>
+
+        <h3>🔍 Filtrele</h3>
+        <form method="GET" class="row g-3 mb-4">
+          <div class="col-md-3">
+            <label class="form-label">Tarih</label>
+            <input type="date" class="form-control" name="tarih" value="{{ filtre.tarih }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Durum</label>
+            <select class="form-select" name="durum">
+              <option value="">Tümü</option>
+              <option value="Devam Ediyor" {% if filtre.durum == 'Devam Ediyor' %}selected{% endif %}>Devam Ediyor</option>
+              <option value="Tamamlandı" {% if filtre.durum == 'Tamamlandı' %}selected{% endif %}>Tamamlandı</option>
+              <option value="Beklemede" {% if filtre.durum == 'Beklemede' %}selected{% endif %}>Beklemede</option>
+              <option value="İptal Edildi" {% if filtre.durum == 'İptal Edildi' %}selected{% endif %}>İptal Edildi</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Sorumlu</label>
+            <select class="form-select" name="sorumlu">
+              <option value="">Tümü</option>
+              {% for kisi in sorumlular %}
+                <option value="{{ kisi }}" {% if filtre.sorumlu == kisi %}selected{% endif %}>{{ kisi }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-primary me-2" type="submit">Filtrele</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Temizle</a>
+          </div>
+        </form>
+
+        <div class="mb-4">
+          <h4>🔎 Canlı Arama</h4>
+          <input type="text" id="aramaInput" class="form-control" placeholder="Ara...">
+        </div>
+
+        {% if toplanti.aktif %}
+        <h3 id="gundemEkle">➕ Yeni Gündem Ekle</h3>
+        <form method="POST" class="row g-3 mb-4">
+          <div class="col-md-6"><label class="form-label">Konu</label><input type="text" name="konu" class="form-control" required></div>
+          <div class="col-md-6"><label class="form-label">Karar</label><input type="text" name="karar" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Durum</label>
+            <select name="durum" class="form-select">
+              <option>Devam Ediyor</option>
+              <option>Tamamlandı</option>
+              <option>Beklemede</option>
+              <option>İptal Edildi</option>
+            </select>
+          </div>
+          <div class="col-md-3"><label class="form-label">Termin</label><input type="date" name="termin" class="form-control" required></div>
+          <div class="col-md-3"><label class="form-label">Eylem Öğeleri</label><input type="text" name="eylem" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Sorumlu</label><input type="text" name="sorumlu" class="form-control" required></div>
+          <div class="col-12"><button type="submit" class="btn btn-success">Ekle</button></div>
+        </form>
+        {% endif %}
+
+        <!-- Gündem Listesi Başlığı -->
+        <h3 id="durumlar" class="d-flex justify-content-between align-items-center">
+          📄 Gündem Listesi
+          <!-- Dışa Aktarma Butonları -->
+          <span class="d-flex gap-2">
+            <a href="{{ url_for('export_excel') }}" class="btn btn-outline-success btn-sm">📥 Excel’e Aktar</a>
+          </span>
+        </h3>
+
+        <!-- Gündem Tablosu -->
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Toplantı Tarihi</th>
+                <th>Konu</th>
+                <th>Karar</th>
+                <th>Durum</th>
+                <th>Termin</th>
+                <th>Eylem Öğeleri</th>
+                <th>Sorumlu</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in gundemler %}
+              <tr id="gundem-{{ item.id }}" class="{{ item.durum_class }}">
+                <td>{{ item.id }}</td>
+                <td>{{ item.toplanti_tarihi }}</td>
+                <td>{{ item.konu }}</td>
+                <td>{{ item.karar }}</td>
+                <td>{{ item.durum }}</td>
+                <td>{{ item.termin }}</td>
+                <td><div class="uzun-metin">{{ item.eylem }}</div></td>
+                <td>{{ item.sorumlu }}</td>
+                <td class="text-nowrap">
+                  <a href="{{ url_for('duzenle', id=item.id) }}" class="btn btn-sm btn-outline-warning me-1">✏️</a>
+                  <a href="{{ url_for('sil', id=item.id) }}" class="btn btn-sm btn-outline-danger"
+                     onclick="return confirm('Silmek istediğinizden emin misiniz?');">🗑</a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Yukarı Çık Butonu -->
+  <button id="yukariBtn" title="Yukarı Çık" class="btn btn-primary position-fixed" style="bottom: 40px; right: 40px; display: none; z-index: 999;">
+    ⬆️ Yukarı
+  </button>
+
+  <!-- Bootstrap ve Özelleştirilmiş JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // Canlı arama
+      const input = document.getElementById("aramaInput");
+      input?.addEventListener("keyup", function () {
+        const filtre = input.value.toLowerCase();
+        const satirlar = document.querySelectorAll("tbody tr");
+        satirlar.forEach(satir => {
+          const metin = satir.textContent.toLowerCase();
+          satir.style.display = metin.includes(filtre) ? "" : "none";
+        });
+      });
+
+      // Gündem satırını vurgula
+      function vurgulaGundemSatiri() {
+        const id = window.location.hash;
+        if (id && id.startsWith("#gundem-")) {
+          const hedef = document.querySelector(id);
+          if (hedef) {
+            hedef.scrollIntoView({ behavior: "smooth", block: "center" });
+            hedef.classList.add("table-warning");
+            setTimeout(() => hedef.classList.remove("table-warning"), 3000);
+          }
+        }
+      }
+      window.addEventListener("load", vurgulaGundemSatiri);
+      window.addEventListener("hashchange", vurgulaGundemSatiri);
+
+      // Yukarı butonu
+      const yukariBtn = document.getElementById("yukariBtn");
+      window.addEventListener("scroll", () => {
+        yukariBtn.style.display = window.scrollY > 100 ? "block" : "none";
+      });
+      yukariBtn.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+
+    // Menü toggle
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('mainContent');
+
+    menuToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      if(sidebar.classList.contains('open')) {
+        mainContent.classList.add('expanded');
+      } else {
+        mainContent.classList.remove('expanded');
+      }
+    });
+
+    // Ekran resize olunca sidebar durumunu resetle
+    window.addEventListener('resize', () => {
+      if(window.innerWidth > 767.98) {
+        sidebar.classList.remove('open');
+        mainContent.classList.remove('expanded');
+      }
+    });
+  </script>
+</body>
+</html>
